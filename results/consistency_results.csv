@@ -1,0 +1,10 @@
+model,missingness,n_checks_monotonicity,monotonicity_violations,n_checks_convexity,convexity_violations,monotonicity_violation_rate,convexity_violation_rate
+linear_strike,0.1,64,1,17,6,0.015625,0.352941
+linear_strike,0.2,170,2,68,11,0.011765,0.161765
+linear_strike,0.3,311,5,162,31,0.016077,0.191358
+nearest_strike,0.1,86,15,24,5,0.174419,0.208333
+nearest_strike,0.2,256,43,123,27,0.167969,0.219512
+nearest_strike,0.3,465,74,287,64,0.15914,0.222997
+svi,0.1,86,5,24,5,0.05814,0.208333
+svi,0.2,252,6,120,18,0.02381,0.15
+svi,0.3,419,10,253,45,0.023866,0.177866

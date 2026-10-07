@@ -1,0 +1,10 @@
+# Generated from the benchmark development environment used for local validation.
+# Recreate with: pip install -r requirements-lock.txt
+numpy==2.3.5
+pandas==2.2.3
+scipy==1.17.0
+matplotlib==3.10.8
+seaborn==0.13.2
+notebook==7.5.3
+jupyterlab==4.5.3
+nbformat==5.10.4
