@@ -1,3 +1,8 @@
-.venv
-.venv-1
-config
+.venv/
+.venv-1/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.DS_Store
+# Keep the frozen benchmark configuration tracked.
+# Do not add config/ here.

@@ -1,82 +1,84 @@
-# START HERE
+# Start Here — FinanceMeta Checkpoint Closeout
 
-You already have the original repository and `data/dataset.csv`.
+This package repairs and documents the existing checkpoint. It does not create
+a new benchmark or retune any model.
 
-## 1. Copy this package into your existing repository
+## 1. Copy into the repository
 
-Keep your original `data/dataset.csv` unchanged.
+Merge these files into the existing `IV-reconstruction` repository root.
+Keep the original `data/dataset.csv` unchanged.
 
-## 2. Open a terminal in the repository root
+The important restored file is:
 
-## 3. Create and activate a virtual environment
+`config/benchmark_config.json`
 
-Windows:
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-```
+The configuration is now intended to remain tracked by Git.
 
-macOS/Linux:
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
-
-## 4. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-## 5. Run ONE command
-
-```bash
-python run_benchmark.py
-```
-
-You do not need to run internal source files yourself.
-
-The command validates the project, runs the frozen benchmark, generates figures,
-and validates the output again.
-
-## 6. Inspect
-
-```text
-results/benchmark_results.csv
-results/consistency_results.csv
-results/robustness_results.csv
-results/holdout_manifest.csv
-results/model_summary.csv
-```
-
-Then open:
-
-```text
-docs/evidence_note.md
-notebooks/02_reproducible_benchmark.ipynb
-```
-
-## 7. Before submission
-
-Fill the verified data-source/rights information and final interpretation in
-`README.md` and `docs/evidence_note.md`.
-
-Then run:
+## 2. Validate the artifact
 
 ```bash
 python scripts/validate_artifact.py
 ```
 
-You want:
+Expected:
 
 ```text
 VALIDATION PASSED
 ```
 
-Finally:
+## 3. Validate Ryan's post-hoc checker
+
+```bash
+python -m unittest -v test_shared_support.py
+```
+
+Expected: 14 tests passing.
+
+## 4. Do not manufacture common-support results
+
+A retained per-target prediction export was not available in the closeout
+artifacts. Therefore do not create replacement prediction rows and call them
+historical evidence.
+
+If the original export is recovered later, use:
+
+```bash
+python shared_support.py retained_predictions.csv --out new_posthoc_review
+```
+
+The input must include:
+
+`missingness,observation_id,model,iv,prediction`
+
+and must preserve explicit blank/NaN predictions for failed targets.
+
+## 5. Verify data provenance before sending the final email
+
+`README.md` and `docs/evidence_note.md` intentionally state that the original
+data source, acquisition route, and usage/redistribution rights are not
+verified in the retained public evidence.
+
+Replace that wording only when you have documentary evidence for the real source
+and rights. Do not guess.
+
+## 6. Final Git checks
+
+```bash
+git status
+git diff -- data/dataset.csv
+```
+
+The dataset should remain unchanged.
+
+Then:
 
 ```bash
 git add .
-git commit -m "Add leakage-safe IV reconstruction benchmark"
+git commit -m "Close FinanceMeta reproducibility review"
 git push origin main
 ```
+
+## 7. Final response to Ryan
+
+Use the closeout email drafted in `docs/RYAN_CLOSEOUT_EMAIL.md` after the
+provenance status is verified.

@@ -1,0 +1,60 @@
+{
+  "experiment_name": "nifty_iv_reconstruction_financemeta_checkpoint",
+  "seed": 42,
+  "data": {
+    "path": "data/dataset.csv",
+    "raw_data_unchanged": true
+  },
+  "split": {
+    "method": "chronological_unique_timestamp",
+    "train_fraction": 0.60,
+    "validation_fraction": 0.20,
+    "evaluation_fraction": 0.20
+  },
+  "holdout": {
+    "mechanism": "nested_structured_cell_mask",
+    "missingness_levels": [0.10, 0.20, 0.30],
+    "nested": true,
+    "same_target_population_across_levels": true,
+    "stratification": {
+      "fields": ["option_type", "moneyness_bin", "time_block"],
+      "time_block_count": 5,
+      "moneyness_definition": {
+        "feature": "log_moneyness",
+        "edges": [-1000000000.0, -0.05, -0.01, 0.01, 0.05, 1000000000.0],
+        "labels": [
+          "left_wing",
+          "left_near_atm",
+          "atm",
+          "right_near_atm",
+          "right_wing"
+        ]
+      }
+    }
+  },
+  "models": {
+    "linear_strike": {
+      "allow_extrapolation": false
+    },
+    "nearest_strike": {},
+    "svi": {
+      "min_points": 5,
+      "max_nfev": 1000,
+      "initial_rhos": [-0.5, 0.0, 0.5],
+      "initial_sigmas": [0.05, 0.15]
+    }
+  },
+  "evaluation": {
+    "primary_metric": "rmse",
+    "secondary_metrics": ["mae"],
+    "record_runtime": true,
+    "record_coverage": true,
+    "record_failure_cases": true,
+    "record_surface_consistency": true
+  },
+  "policy": {
+    "retune_per_missingness_level": false,
+    "use_holdout_values_for_fitting": false,
+    "allow_live_trading_or_capital_deployment": false
+  }
+}

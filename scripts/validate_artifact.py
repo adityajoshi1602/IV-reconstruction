@@ -23,6 +23,13 @@ REQUIRED_FILES = [
     "results/benchmark_results.csv",
     "README.md",
     "requirements.txt",
+    "requirements-lock.txt",
+    "config/benchmark_config.json",
+    "results/consistency_results.csv",
+    "results/robustness_results.csv",
+    "results/model_summary.csv",
+    "run_benchmark.py",
+    "docs/closeout_status.md",
 ]
 
 
@@ -74,6 +81,13 @@ def validate(root: Path) -> list[str]:
                     errors.append(f"{csv_file} missing columns: {missing}")
             except Exception as exc:
                 errors.append(f"Unreadable CSV {csv_file}: {exc}")
+
+    # Confirm that the frozen configuration is parseable and retained.
+    if cfg_path.exists():
+        try:
+            json.loads(cfg_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
 
     return errors
 

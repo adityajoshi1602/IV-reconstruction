@@ -1,47 +1,25 @@
-# FinanceMeta — Final Evidence Note
+# FinanceMeta — Final Evidence Note and Closeout
 
 ## 1. Research question
 
-**Primary:** Under a leakage-safe structured holdout, when does an SVI-style
-volatility-smile fit outperform simpler IV reconstruction baselines?
-
-**Secondary:** How do reconstruction error, coverage, runtime, and failure rate
-change as controlled missingness increases from 10% to 20% to 30%?
-
-**Robustness:** Are the model rankings stable across temporally separated
-evaluation regimes?
+This checkpoint asks how Linear Strike interpolation, Nearest Strike, and a
+bounded raw SVI fit behave when observed NIFTY IV cells are masked at 10%, 20%,
+and 30% under a leakage-safe structured holdout.
 
 ## 2. Frozen protocol
 
-The benchmark was run under the frozen protocol in `docs/protocol.md`.
+The exact benchmark configuration is preserved in `config/benchmark_config.json`.
+The protocol fixes the chronological 60%/20%/20% split, seed 42, nested matched
+10%/20%/30% holdouts, models, metrics, no-retuning policy, and no-holdout-leakage
+policy.
 
-- Chronological unique-timestamp split: 60% development / 20% validation / 20% evaluation.
-- Seed: 42.
-- Nested matched holdouts: 10%, 20%, 30%.
-- Same target population is nested across missingness levels.
-- Models: Linear Strike, Nearest Strike, raw SVI.
-- Primary metric: RMSE.
-- Secondary metric: MAE.
-- No per-condition retuning.
-- Holdout values are not supplied to model fitting.
-- Linear interpolation does not silently extrapolate beyond the observed strike range.
+The public commit containing both protocol and results does not independently
+establish a pre-outcome freeze. This chronology limitation is recorded rather
+than inferred away. See `docs/config_provenance.md`.
 
-## 3. Dataset and scope
+## 3. Main retained benchmark results
 
-The benchmark uses the repository's `data/dataset.csv`.
-
-The current EDA identifies a single expiry with multiple timestamped strikes and
-CE/PE IV observations. Therefore this checkpoint is a **single-expiry,
-cross-sectional strike/moneyness reconstruction study**, not a full
-multi-expiry term-structure benchmark.
-
-**Data source / rights:** insert the verified original source, acquisition
-route, and redistribution/usage rights here before submission. Do not infer
-rights from repository presence alone.
-
-## 4. Main benchmark result
-
-| Model | Missingness | RMSE | MAE | Coverage | Runtime (s) | Failures |
+| Model | Missingness | RMSE | MAE | Coverage | Runtime (s) | failure_count |
 |---|---:|---:|---:|---:|---:|---:|
 | Linear Strike | 10% | 0.014114 | 0.005197 | 82.00% | 0.514 | 79 |
 | Nearest Strike | 10% | 0.077078 | 0.038354 | 100.00% | 0.559 | 0 |
@@ -53,129 +31,103 @@ rights from repository presence alone.
 | Nearest Strike | 30% | 0.102487 | 0.048728 | 100.00% | 0.614 | 0 |
 | SVI | 30% | 0.038535 | 0.009619 | 93.39% | 54.388 | 87 |
 
-### Main finding
+### Interpretation
 
-**SVI did not beat Linear Strike interpolation overall.**
+The recorded RMSE/MAE values are computed only where each model produced a
+finite prediction. Because Linear and SVI have different coverage, the table
+supports a **conditional model-specific error comparison**, not a matched-target
+overall ranking.
 
-Linear Strike achieved the lowest RMSE and MAE at all three missingness levels:
+On their own successful predictions, Linear has lower reported RMSE and MAE than
+SVI at all three missingness levels, while SVI covers more targets.
 
-- 10%: Linear RMSE 0.014114 vs SVI 0.024243.
-- 20%: Linear RMSE 0.012079 vs SVI 0.039045.
-- 30%: Linear RMSE 0.013816 vs SVI 0.038535.
+Nearest Strike has substantially higher conditional error than either approach
+at all three levels.
 
-Nearest Strike was substantially worse on error at every level.
+## 4. Failure-count clarification
 
-The important trade-off is coverage: Linear Strike coverage declined from
-82.00% to 74.47%, while SVI remained at 100.00%, 99.20%, and 93.39%.
+The retained `failure_count` is `n_targets - n_predictions`. It counts target
+rows without a finite prediction. It is not, by itself, a count of distinct SVI
+optimizer failures.
 
-SVI was also much more expensive computationally: roughly 74–85x the Linear
-runtime across the three missingness levels.
+The closeout therefore does not claim 0/7/87 distinct optimizer failures without
+separate retained fit-level logs.
 
-## 5. SVI failure behavior
+## 5. Temporal robustness
 
-SVI fit failures increased as missingness increased:
+The retained robustness analysis found an SVI advantage in the early evaluation
+regime:
 
-- 10%: 0 failures.
-- 20%: 7 failures.
-- 30%: 87 failures.
+- 10%: SVI RMSE 0.000900 vs Linear 0.001478;
+- 20%: SVI 0.000950 vs Linear 0.001667;
+- 30%: SVI 0.001069 vs Linear 0.002508.
 
-This indicates increasing calibration fragility as the observed smile becomes
-sparser.
+In the late regime the ranking reversed:
 
-## 6. Robustness / regime sensitivity
+- 10%: Linear 0.020661 vs SVI 0.035207;
+- 20%: Linear 0.017563 vs SVI 0.056254;
+- 30%: Linear 0.019716 vs SVI 0.055371.
 
-The temporal robustness check changes the interpretation.
+The appropriate conclusion is **regime-sensitive SVI behavior**, not a stable
+overall SVI advantage.
 
-### Early evaluation regime
+## 6. Surface consistency / arbitrage sanity
 
-| Missingness | Linear RMSE | SVI RMSE | Better |
-|---:|---:|---:|---|
-| 10% | 0.001478 | **0.000900** | SVI |
-| 20% | 0.001667 | **0.000950** | SVI |
-| 30% | 0.002508 | **0.001069** | SVI |
+Basic call-price monotonicity and adjacent-strike convexity checks are retained.
+SVI has lower convexity-violation rates than Linear at 20% and 30%, but higher raw
+violation counts at both levels. The correct statement is about the rates, not the
+raw counts.
 
-### Late evaluation regime
+No method is formally demonstrated to be globally arbitrage-free. Because the
+dataset has one expiry, no calendar-spread test is claimed.
 
-| Missingness | Linear RMSE | SVI RMSE | Better |
-|---:|---:|---:|---|
-| 10% | **0.020661** | 0.035207 | Linear |
-| 20% | **0.017563** | 0.056254 | Linear |
-| 30% | **0.019716** | 0.055371 | Linear |
+## 7. Common-support comparison
 
-Therefore:
+A matched-target ranking would require retained per-target predictions for all
+models and explicit missing predictions for failed targets.
 
-> **SVI has a conditional advantage in the earlier evaluation regime,
-> but that advantage does not persist in the later regime.**
+No original per-target prediction export was available in the retained project
+artifacts used for this closeout. Therefore no new prediction rows or common-
+support results are fabricated, and the original aggregate tables are preserved.
 
-This is evidence of regime sensitivity rather than a stable overall SVI
-advantage.
+Ryan's supplied post-hoc checker is included as `shared_support.py`; it does not
+run models or inference. Its bundled synthetic unit suite passes 14 tests.
 
-## 7. Surface-consistency / arbitrage sanity checks
+## 8. Data provenance and rights
 
-The benchmark uses basic Black-Scholes call-price checks after reconstruction.
+The original data source, acquisition route, and redistribution/usage rights are
+not verified in the retained public evidence available for this closeout. This
+remains an explicit provenance limitation. No source or licence is guessed.
 
-| Model | Missingness | Monotonicity violations | Monotonicity rate | Convexity violations | Convexity rate |
-|---|---:|---:|---:|---:|---:|
-| Linear Strike | 10% | 1 | 1.56% | 6 | 35.29% |
-| Linear Strike | 20% | 2 | 1.18% | 11 | 16.18% |
-| Linear Strike | 30% | 5 | 1.61% | 31 | 19.14% |
-| Nearest Strike | 10% | 15 | 17.44% | 5 | 20.83% |
-| Nearest Strike | 20% | 43 | 16.80% | 27 | 21.95% |
-| Nearest Strike | 30% | 74 | 15.91% | 64 | 22.30% |
-| SVI | 10% | 5 | 5.81% | 5 | 20.83% |
-| SVI | 20% | 6 | 2.38% | 18 | 15.00% |
-| SVI | 30% | 10 | 2.39% | 45 | 17.79% |
+## 9. What worked
 
-Interpretation:
+- deterministic structured holdout and nested missingness conditions;
+- reproducible aggregate benchmark outputs;
+- Linear as the lowest-error method on its own successful predictions;
+- SVI's higher coverage relative to Linear;
+- temporal robustness revealing regime sensitivity rather than a universal
+  model winner.
 
-- Nearest Strike has the highest monotonicity-violation rate.
-- Linear has the lowest monotonicity-violation rate in this benchmark.
-- SVI has fewer convexity violations than Linear at 20% and 30%.
-- No method is formally demonstrated to be globally arbitrage-free.
+## 10. What failed / limitations
 
-Because the dataset has one expiry, no meaningful calendar-spread check is
-claimed.
-
-## 8. What worked
-
-1. The frozen nested holdout produced a reproducible comparison across 10%,
-   20%, and 30% missingness.
-2. Linear Strike interpolation was the most accurate method on the overall
-   benchmark RMSE/MAE.
-3. SVI substantially improved error over Nearest Strike.
-4. SVI maintained much higher coverage than Linear Strike.
-5. The temporal robustness test identified a clear change in model ranking
-   between earlier and later evaluation regimes.
-
-## 9. What failed / limitations
-
-1. Linear interpolation loses coverage as missingness increases because some
-   held-out targets are not bracketed by remaining observed strikes.
-2. SVI is much slower than the simple methods.
-3. SVI calibration failures increase materially at 30% missingness.
-4. The overall SVI advantage is not robust across the temporal split.
-5. The single-expiry dataset limits conclusions about full volatility-surface
-   and term-structure behavior.
-6. The arbitrage analysis is a basic sanity check rather than a global
-   no-arbitrage proof.
-
-## 10. What I would test next
-
-The highest-value next experiment is a **multi-expiry benchmark** with a larger
-sample. It should test whether the conditional SVI advantage seen in the
-earlier regime generalizes across expiries and volatility regimes, and should
-add calendar-spread constraints alongside stronger strike-wise no-arbitrage
-constraints.
+- unequal model coverage prevents the original conditional RMSE/MAE table from
+  being interpreted as a matched-target ranking;
+- no retained per-target prediction export means the requested common-support
+  comparison cannot be computed without new evidence;
+- SVI is much slower and produces more missing target predictions as missingness
+  rises;
+- the single-expiry dataset limits the checkpoint to cross-sectional
+  strike/moneyness reconstruction;
+- data-source/rights provenance and an independently verifiable pre-outcome
+  protocol timestamp are not present in the public submission record.
 
 ## 11. Final conclusion
 
-For this checkpoint, the evidence does **not** support replacing simple linear
-strike interpolation with SVI on overall predictive accuracy.
+The retained checkpoint does not justify replacing the simple Linear Strike
+baseline with SVI on the reported model-specific conditional accuracy table.
+SVI trades higher coverage for materially higher runtime and shows an advantage
+only in the earlier temporal regime. The later regime reverses that advantage.
 
-A more nuanced conclusion is:
-
-> **Linear interpolation is the strongest accuracy baseline on this dataset,
-> while SVI trades substantially higher runtime for higher coverage and can
-> outperform Linear during the earlier evaluation regime. The advantage is not
-> stable in the later regime and becomes harder to calibrate as missingness
-> increases.**
+The appropriate next research step remains a larger multi-expiry benchmark with
+stronger strike and calendar no-arbitrage constraints, but that work is outside
+this closeout.

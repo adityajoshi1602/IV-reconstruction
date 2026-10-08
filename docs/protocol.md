@@ -3,193 +3,155 @@
 ## 1. Research questions
 
 ### Primary
-Under a leakage-safe holdout, when does an SVI-style volatility-smile fit outperform simpler IV reconstruction baselines?
+Under a leakage-safe structured holdout, how do an SVI-style volatility-smile
+fit and simpler IV reconstruction baselines compare?
 
 ### Secondary
-How do reconstruction error, coverage, runtime, and failure rate change as controlled missingness increases from 10% to 20% to 30%?
+How do reconstruction error, prediction coverage, runtime, and missing-prediction
+behavior change as controlled missingness increases from 10% to 20% to 30%?
 
 ### Robustness
-Are the relative model results stable across temporally separated market conditions?
+Are the relative model results stable across temporally separated evaluation
+regimes?
 
 ## 2. Scope
 
-This is a bounded reproducibility/stress-test study. It is not a trading strategy, live-trading system, or capital-deployment exercise.
+This is a bounded reproducibility/stress-test study. It is not a trading
+strategy, live-trading system, or capital-deployment exercise.
 
-The repository dataset is a single-expiry NIFTY option dataset. Therefore, this checkpoint evaluates cross-sectional strike/moneyness reconstruction over time. A meaningful calendar/term-structure arbitrage test is outside this checkpoint and is treated as a limitation/future test.
+The retained dataset has one expiry. The checkpoint therefore evaluates
+cross-sectional strike/moneyness reconstruction over time. It does not establish
+multi-expiry term-structure performance or global arbitrage-freedom.
 
-## 3. Raw data
+## 3. Data and rights
 
-Canonical raw file:
-
-`data/dataset.csv`
+Canonical raw file: `data/dataset.csv`.
 
 The raw file is treated as read-only by the benchmark.
 
-The benchmark records dataset provenance and redistribution/usage rights in the final README/evidence note from the verified original source information. No rights are inferred from the repository alone.
+The original external data source, acquisition route, and redistribution/usage
+rights are not independently verified in the retained public evidence available
+for this closeout. No rights are inferred from repository presence.
 
-## 4. Canonical observation unit
+## 4. Chronological split
 
-Each observed IV cell is represented by:
+Unique timestamps are sorted ascending:
 
-- timestamp
-- option symbol
-- expiry
-- strike
-- option type
-- underlying price
-- log-moneyness
-- IV
-- deterministic `observation_id`
-
-An evaluation target is an originally observed IV cell that is intentionally masked after the split and holdout protocol is frozen.
-
-## 5. Chronological split
-
-Unique timestamps are sorted ascending and split chronologically:
-
-- first 60% of unique timestamps: development/training period
-- next 20%: validation period
-- final 20%: evaluation period
-
-The split rule is frozen before final comparative results are inspected.
+- first 60%: development/training period;
+- next 20%: validation period;
+- final 20%: evaluation period.
 
 No evaluation-period target value is used to fit a model.
 
-## 6. Structured nested holdout
+## 5. Structured nested holdout
 
-A master 30% holdout is generated only from originally observed IV cells in the evaluation period.
+A master 30% holdout is generated only from originally observed IV cells in the
+evaluation period. Eligibility is stratified by:
 
-Eligibility is stratified by:
-
-- option type
-- moneyness bin
-- one of five deterministic time blocks
-
-Moneyness bins use fixed `log_moneyness` edges:
-
-- left wing: `(-inf, -0.05)`
-- left near-ATM: `[-0.05, -0.01)`
-- ATM: `[-0.01, 0.01]`
-- right near-ATM: `(0.01, 0.05]`
-- right wing: `(0.05, inf)`
+- option type;
+- fixed log-moneyness bin;
+- one of five deterministic time blocks.
 
 The 10% and 20% conditions are nested subsets of the 30% condition:
 
 `H10 ⊂ H20 ⊂ H30`
 
-The same target population is therefore matched across conditions, rather than drawing three unrelated test samples.
+Selection is deterministic from seed 42 and a stable hash of `observation_id`.
+The exact membership is stored in `results/holdout_manifest.csv`.
 
-Selection is deterministic from the frozen seed (42) and a stable hash of `observation_id`; no result-dependent selection is permitted.
+## 6. Missingness conditions
 
-## 7. Missingness conditions
+The benchmark evaluates 10%, 20%, and 30% masking. Existing natural missing
+values remain missing and are not treated as pseudo-ground truth.
 
-The benchmark evaluates:
+No model setting is changed between missingness conditions.
 
-- 10% masked
-- 20% masked
-- 30% masked
+## 7. Models
 
-The missingness level is applied only to the predefined holdout targets. Existing natural missing values remain missing and are not converted into pseudo-ground truth.
+### Linear Strike interpolation
 
-No model parameter, optimizer bound, or reconstruction rule is changed between missingness conditions.
+Predict a masked strike from remaining observed strikes within the same
+ timestamp/expiry/option-type slice using linear interpolation. Extrapolation is
+disabled. Unsupported targets are recorded as missing predictions.
 
-## 8. Models
+### Nearest Strike
 
-### Baseline A — Linear strike interpolation
-For each timestamp/expiry/option-type slice, predict a masked strike from the remaining observed strikes with linear interpolation.
+Use the IV at the nearest remaining observed strike.
 
-Extrapolation outside the observed strike range is disabled by protocol. Such targets are recorded as prediction failures rather than silently extrapolated.
+### Raw SVI
 
-### Baseline B — Nearest observed strike
-For each timestamp/expiry/option-type slice, use the IV at the nearest remaining observed strike.
+Fit raw SVI to total implied variance as a function of log-moneyness using only
+remaining observed training points. Optimizer bounds, initialization set,
+minimum point count, and function-evaluation limit are frozen in
+`config/benchmark_config.json`.
 
-### Model C — Raw SVI
-Fit raw SVI to total implied variance as a function of log-moneyness using only the remaining observed training points in the same timestamp/expiry/option-type slice.
+## 8. Evaluation metrics
 
-The SVI optimizer, parameter bounds, initialization set, minimum point count, and maximum function evaluations are frozen in `config/benchmark_config.json`.
+Primary: RMSE.
 
-Holdout values are never supplied to the SVI calibration.
-
-## 9. Primary and secondary metrics
-
-Primary metric:
-
-`RMSE`
-
-Secondary metric:
-
-`MAE`
+Secondary: MAE.
 
 Additional diagnostics:
 
-- prediction coverage
-- failure count/rate
-- runtime
-- basic surface-consistency/arbitrage sanity checks
+- prediction coverage;
+- missing-prediction count;
+- runtime;
+- strike-wise monotonicity/convexity sanity checks;
+- temporal robustness.
 
-Metrics are computed only where a model produces a finite prediction. Coverage is reported separately so lower error cannot be obtained by silently dropping difficult targets.
+RMSE/MAE in the retained aggregate benchmark are calculated only on each
+model's finite predictions. Therefore the recorded errors are conditional on
+model-specific successful prediction subsets. A matched-target ranking requires
+a separate common-support calculation on retained per-target predictions.
 
-## 10. Runtime measurement
+## 9. Failure terminology
 
-Runtime is measured with a monotonic high-resolution timer around each complete model/condition evaluation.
+`failure_count` in the retained aggregate result table means the number of target
+rows without a finite prediction (`n_targets - n_predictions`). It is not a
+count of distinct optimizer failures.
 
-All models are run in the same environment and on the same machine/session where possible.
+Fit-level optimizer failures are only claimed when separately retained fit logs
+establish them.
 
-## 11. Failure policy
+## 10. Runtime
 
-Failures are preserved and categorized rather than replaced with another model.
+Runtime is measured around each complete model/condition evaluation using a
+monotonic high-resolution timer under the same environment/session where
+possible.
 
-Examples:
+## 11. Surface consistency
 
-- insufficient observed strikes
-- target outside interpolation bracket
-- SVI insufficient points
-- SVI optimizer failure
-- invalid/non-positive fitted total variance
-- non-finite prediction
+Reconstructed IVs are converted to Black-Scholes call prices under the documented
+assumptions and checked for:
 
-## 12. Surface-consistency sanity check
+- strike-price monotonicity;
+- adjacent-strike convexity.
 
-For reconstructed IVs, the benchmark will later convert IVs to Black-Scholes call prices using explicitly documented assumptions and check basic:
+These are sanity checks, not a formal proof of global arbitrage freedom. With one
+expiry, no calendar-spread condition is claimed.
 
-- strike-price monotonicity
-- adjacent-strike convexity
+## 12. Robustness
 
-These are sanity checks, not a formal proof of global arbitrage freedom.
+The evaluation sample is compared between earlier and later temporal regimes
+using the frozen model settings. No retuning is allowed after inspecting the
+results.
 
-Because the checkpoint contains one expiry, no meaningful calendar-spread condition is claimed.
+## 13. Configuration provenance
 
-## 13. Robustness check
+The exact configuration used for the retained benchmark has been recovered and
+is now tracked at `config/benchmark_config.json`.
 
-A temporal robustness comparison is performed using the frozen chronological structure. Performance is compared between earlier and later portions of the evaluation sample without changing model settings.
+The public submitted commit that combined protocol and results does not by itself
+prove a pre-outcome freeze. The chronology is therefore reported as not
+independently verifiable from the public commit alone. No replacement settings
+have been reconstructed from observed outcomes.
 
-The robustness analysis is descriptive and does not permit protocol changes based on observed results.
+## 14. Post-hoc common-support audit
 
-## 14. Reproducibility
+If the original per-target prediction export is later recovered, it may be
+analysed with the supplied `shared_support.py` checker. The input must contain
+one row per model/target/condition, including explicit blank/NaN predictions for
+failed targets.
 
-Frozen settings:
-
-- seed: 42
-- split: 60% / 20% / 20% by unique timestamp
-- missingness: 10% / 20% / 30%
-- nested holdouts: yes
-- primary metric: RMSE
-- per-condition retuning: no
-- evaluation values used for fitting: no
-
-The exact held-out cell membership is saved to `results/holdout_manifest.csv`.
-
-## 15. Reporting rule
-
-The benchmark will report positive, negative, and inconclusive findings without selecting a preferred conclusion in advance.
-
-The final evidence note must explicitly state:
-
-1. what worked
-2. what failed
-3. whether/when SVI beat simpler baselines
-4. how error changed with missingness
-5. runtime and failure behavior
-6. robustness result
-7. limitations
-8. next experiment to run
+Any resulting common-support metrics must be labelled **post-hoc** and must not
+replace the original aggregate benchmark table.

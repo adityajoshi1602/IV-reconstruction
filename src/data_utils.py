@@ -164,7 +164,7 @@ def validate_raw_dataset(df: pd.DataFrame) -> None:
     if not option_columns:
         raise ValueError("No valid option columns found.")
 
-    observed_iv = df[option_columns].stack().dropna()
+    observed_iv = df[option_columns].stack(dropna=True)
     if (observed_iv <= 0).any():
         raise ValueError("Observed IV values must be strictly positive.")
 

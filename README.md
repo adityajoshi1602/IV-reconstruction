@@ -1,20 +1,49 @@
-# NIFTY IV Surface Reconstruction — FinanceMeta Reproducible Benchmark
+# NIFTY IV Reconstruction — FinanceMeta Checkpoint
 
-This repository contains a bounded reproducibility/stress-test benchmark for
-reconstructing missing NIFTY implied-volatility observations.
+A bounded reproducibility and stress-test artifact for reconstructing missing
+NIFTY implied-volatility observations. This checkpoint is a research evaluation,
+not a trading strategy, live-trading system, or capital-deployment exercise.
 
 ## Research question
 
-Under a leakage-safe structured holdout, when does an SVI-style volatility-smile
-fit outperform simpler interpolation baselines?
+Under the frozen structured holdout used for this checkpoint, how do Linear
+Strike interpolation, Nearest Strike, and a bounded raw SVI volatility-smile fit
+behave as controlled missingness increases from 10% to 20% to 30%?
 
-Secondary question: how do error, coverage, runtime, and failures change as
-controlled missingness increases from 10% to 20% to 30%?
+## Scope
 
-## Final finding
+The retained dataset contains one expiry. Therefore this checkpoint evaluates
+single-expiry cross-sectional strike/moneyness reconstruction over time. It does
+not establish multi-expiry term-structure performance or global
+arbitrage-freedom.
 
-**SVI did not beat Linear Strike interpolation on overall RMSE or MAE at any
-tested missingness level.**
+## Frozen benchmark design
+
+The exact configuration is preserved in `config/benchmark_config.json` and the
+full protocol is in `docs/protocol.md`.
+
+Key frozen settings:
+
+- chronological unique-timestamp split: 60% development / 20% validation /
+  20% evaluation;
+- seed: 42;
+- nested structured holdouts: 10%, 20%, 30%;
+- same target population nested across missingness levels;
+- Linear Strike, Nearest Strike, bounded raw SVI;
+- primary metric: RMSE;
+- secondary metric: MAE;
+- runtime and coverage recorded;
+- no per-condition retuning;
+- holdout values never supplied to model fitting;
+- Linear interpolation does not silently extrapolate outside the observed strike
+  bracket.
+
+The exact held-out cells are in `results/holdout_manifest.csv`.
+
+## What the recorded benchmark shows
+
+The retained aggregate tables show the following model-specific conditional
+errors:
 
 | Missingness | Linear RMSE | SVI RMSE | Linear MAE | SVI MAE |
 |---:|---:|---:|---:|---:|
@@ -22,86 +51,95 @@ tested missingness level.**
 | 20% | **0.012079** | 0.039045 | **0.004961** | 0.009482 |
 | 30% | **0.013816** | 0.038535 | **0.005886** | 0.009619 |
 
-However, Linear coverage declined from 82.00% to 74.47%, while SVI coverage
-was 100.00%, 99.20%, and 93.39%.
+These errors are computed on each model's own successful predictions. Linear
+coverage is 82.00%, 77.20%, and 74.47%; SVI coverage is 100.00%, 99.20%, and
+93.39%. Because coverage differs, the table supports the statement that Linear
+has lower reported **conditional** RMSE/MAE on its own successful predictions;
+it does not, by itself, establish a matched-target superiority claim.
 
-SVI also required roughly 74–85x the Linear runtime in the three benchmark
-conditions and had 0, 7, and 87 calibration failures as missingness increased.
+Nearest Strike has substantially larger conditional error at all three levels.
 
-## Robustness result
+SVI is much slower than Linear in the retained benchmark and its missing-
+prediction count rises with missingness. The `failure_count` field in the
+retained table is `n_targets - n_predictions`: missing target predictions, not a
+count of distinct optimizer fits.
 
-The temporal robustness test found that SVI **did outperform Linear during the
-early evaluation regime**, but Linear outperformed SVI during the later regime.
+## Temporal robustness
 
-This means the evidence supports **conditional/regime-sensitive SVI behavior**,
-not a stable overall SVI advantage.
+The retained robustness analysis found SVI ahead of Linear in the earlier
+evaluation regime, but Linear ahead of SVI in the later regime. The appropriate
+conclusion is **regime-sensitive SVI behavior**, not a stable overall SVI
+advantage.
 
-## Models
+## Surface consistency
 
-1. Linear Strike interpolation
-2. Nearest Strike baseline
-3. Bounded raw SVI fit
-
-## Frozen protocol
-
-See [`docs/protocol.md`](docs/protocol.md).
-
-- chronological split: 60% / 20% / 20% by unique timestamp
-- seed: 42
-- nested matched holdouts: 10%, 20%, 30%
-- same target population across missingness conditions
-- RMSE as primary metric
-- MAE as secondary metric
-- no per-condition retuning
-- holdout values excluded from fitting
-
-## Results
-
-Machine-readable outputs:
-
-- [`results/benchmark_results.csv`](results/benchmark_results.csv)
-- [`results/consistency_results.csv`](results/consistency_results.csv)
-- [`results/robustness_results.csv`](results/robustness_results.csv)
-- [`results/holdout_manifest.csv`](results/holdout_manifest.csv)
-
-Research summary:
-
-- [`docs/evidence_note.md`](docs/evidence_note.md)
-
-Main notebook:
-
-- [`notebooks/02_reproducible_benchmark.ipynb`](notebooks/02_reproducible_benchmark.ipynb)
-
-## Scope limitation
-
-The current repository dataset contains one expiry. This checkpoint therefore
-evaluates single-expiry cross-sectional strike/moneyness reconstruction. It
-does not establish multi-expiry term-structure performance or global
-arbitrage-freedom.
+The benchmark performs basic Black-Scholes call-price strike monotonicity and
+adjacent-strike convexity sanity checks. SVI has lower convexity-violation rates
+than Linear at 20% and 30%, although its raw violation counts are higher at both
+levels. These checks are not a formal global no-arbitrage proof, and no calendar
+check is claimed because the dataset has one expiry.
 
 ## Data provenance and rights
 
-Before submission, insert the verified original data source, acquisition route,
-and redistribution/usage rights. Do not infer these rights from repository
-presence alone.
+The original dataset source, acquisition route, and redistribution/usage rights
+are **not verified in the retained repository evidence available for this
+closeout**. Repository presence alone does not establish those rights. This is
+recorded as an unresolved provenance limitation rather than guessed.
 
-## Reproduction
+## Protocol chronology
 
-Create/activate a virtual environment, then:
+The exact benchmark configuration used for the recorded results has been
+recovered and is now tracked in the repository. However, the public submitted
+commit combined the protocol and results, so it does not independently prove a
+pre-outcome freeze. See `docs/config_provenance.md` for the precise status.
+
+## Common-support comparison
+
+A matched-target comparison would require retained per-target predictions with
+explicit missing predictions. No such original export is available in this
+closeout package. Therefore no new common-support result is invented. Ryan's
+post-hoc checker is included as `shared_support.py`; its synthetic test suite
+passes separately.
+
+See `docs/closeout_status.md` for the full review disposition.
+
+## Reproduction of the historical checkpoint
+
+The repository now contains the exact recovered configuration, so a future
+fresh run is mechanically reproducible from code and config. It must **not** be
+represented as proof of the original historical run chronology.
+
+For a fresh run:
 
 ```bash
 pip install -r requirements.txt
 python run_benchmark.py
 ```
 
-The runner validates the artifact, executes the frozen benchmark, produces the
-result tables/figures, and validates the outputs again.
+The fresh run creates new outputs. Do not overwrite or relabel the retained
+historical outputs as newly generated evidence.
 
-## Next step
+## Review checker
 
-Test the conditional SVI result on a larger multi-expiry dataset with stronger
-calendar and strike no-arbitrage constraints.
+Ryan's supplied checker is included for any future recovery of the original
+per-target predictions:
 
-## Author
+```bash
+python -m unittest -v test_shared_support.py
+python shared_support.py retained_predictions.csv --out new_posthoc_review
+```
 
-Aditya Joshi
+The checker is post-hoc only: it does not fetch data, train models, or run
+inference, and it refuses to overwrite an existing output directory.
+
+## Final research conclusion
+
+The recorded checkpoint does not support replacing the simple Linear Strike
+baseline with SVI on the model-specific aggregate accuracy table. SVI offers
+higher coverage and can outperform Linear in the early temporal regime, but its
+advantage is not stable later and its computational/calibration burden rises
+with missingness.
+
+The next research step remains a larger multi-expiry benchmark with stronger
+term-structure and no-arbitrage constraints, but that is explicitly outside this
+closeout.
